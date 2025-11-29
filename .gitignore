@@ -1,0 +1,36 @@
+# Fichiers de clés WireGuard (NE JAMAIS COMMITTER)
+*privatekey
+*publickey
+*presharedkey
+*.key
+
+# Fichiers de configuration WireGuard avec clés privées
+*.conf
+
+# Répertoires WireGuard
+clients/
+/etc/wireguard/
+
+# Fichiers système
+*.log
+*.tmp
+*.swp
+*~
+
+# Fichiers de backup
+*.bak
+*.backup
+*.old
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Scripts générés temporairement
+add-client.sh
