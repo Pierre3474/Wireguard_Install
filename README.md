@@ -163,6 +163,43 @@ lxc.cgroup.devices.allow: c 10:200 rwm
 lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
 ```
 
+#### 🎓 Comprendre la Configuration LXC (Pédagogie)
+
+**Pourquoi ces deux lignes sont-elles nécessaires ?**
+
+Les conteneurs LXC sont isolés du noyau de l'hôte pour des raisons de sécurité. Par défaut, ils n'ont accès qu'à un ensemble limité de périphériques système. WireGuard, étant un module du noyau Linux, nécessite l'accès au périphérique `/dev/net/tun` pour créer des interfaces réseau virtuelles.
+
+Voici ce que font ces deux lignes :
+
+**1️⃣ `lxc.cgroup2.devices.allow: c 10:200 rwm`**
+
+Cette ligne **donne la permission (la clé)** au conteneur d'accéder au périphérique TUN.
+
+- **`c 10:200`** : Identifie le périphérique TUN/TAP (caractère majeur 10, mineur 200)
+- **`rwm`** : Autorise les opérations **R**ead (lecture), **W**rite (écriture), **M**knod (création)
+- **Analogie** : C'est comme donner une clé à votre conteneur pour qu'il puisse déverrouiller la porte du module TUN
+
+**2️⃣ `lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file`**
+
+Cette ligne **crée le fichier (la serrure)** `/dev/net/tun` à l'intérieur du conteneur.
+
+- **`bind`** : Monte le périphérique de l'hôte dans le conteneur (liaison)
+- **`create=file`** : Crée le fichier spécial si inexistant dans le conteneur
+- **Analogie** : C'est comme installer la serrure sur la porte du conteneur
+
+**⚠️ Sécurité et Isolation**
+
+Ces modifications touchent à l'isolation du noyau. Vous autorisez délibérément le conteneur à accéder à une fonctionnalité système de bas niveau (le module TUN). C'est nécessaire pour WireGuard, mais gardez à l'esprit que :
+
+- ✅ WireGuard est un logiciel sûr et audité
+- ✅ L'accès est limité uniquement au périphérique TUN
+- ⚠️ Ne donnez ces permissions qu'aux conteneurs de confiance
+- ⚠️ Ne partagez jamais les clés privées générées
+
+**En résumé** : Sans ces deux lignes, votre conteneur a une porte (le besoin d'accéder à TUN), mais ni serrure ni clé. Avec ces lignes, vous installez la serrure ET donnez la clé, permettant à WireGuard de fonctionner correctement.
+
+---
+
 ### 2.2 Activation du Nesting (Optionnel mais Recommandé)
 
 Pour une meilleure compatibilité, activez le nesting :
@@ -267,13 +304,15 @@ Le script vous guidera à travers les étapes suivantes :
 2. **Installation des dépendances** (WireGuard, iptables, qrencode, etc.)
 3. **Configuration interactive** :
    - ✅ **Interface WAN** : Le script détecte automatiquement `eth0` (confirmation demandée)
-   - ✅ **Endpoint** : Votre IP publique (détectée automatiquement) ou FQDN
-   - ✅ **Sous-réseau VPN** : Par défaut `10.66.66.1` (évite les conflits avec les réseaux domestiques)
+   - ✅ **Endpoint** : Votre IP publique (détectée automatiquement via `ifconfig.me`) ou FQDN
+   - ✅ **Sous-réseau VPN** : Par défaut `10.66.66.1/24`
+     - ⚠️ **Alerte de sécurité** : Le script affiche un **avertissement jaune** vous rappelant d'éviter d'utiliser `192.168.1.x` pour le VPN si c'est votre réseau local domestique (risque de conflit de routage)
+     - 💡 Le sous-réseau par défaut `10.66.66.0/24` est choisi spécifiquement pour éviter les conflits avec les Box Internet classiques (qui utilisent généralement `192.168.0.x` ou `192.168.1.x`)
    - ✅ **Port** : Par défaut `51820` (UDP)
    - ✅ **DNS** : Par défaut `1.1.1.1` (Cloudflare)
-4. **Génération des clés** du serveur
+4. **Génération des clés** du serveur (privée/publique avec permissions `chmod 600`)
 5. **Création du premier client** (nom personnalisable)
-6. **Affichage du QR Code** pour connexion mobile
+6. **Affichage du QR Code** pour connexion mobile instantanée
 
 ### 3.7 Exemple d'Exécution
 
@@ -298,21 +337,21 @@ Configuration du Serveur WireGuard
 ========================================
 
 [i] Interface réseau détectée: eth0
-Confirmer cette interface ? (O/n):
+Confirmer cette interface ? (O/n): O
 
 [i] Configuration de l'endpoint du serveur
 [!] L'endpoint doit être votre IP publique ou nom de domaine (FQDN)
 [i] IP publique détectée: 203.0.113.50
-Utiliser cette IP comme endpoint ? (O/n):
+Utiliser cette IP comme endpoint ? (O/n): O
 
 [!] ╔════════════════════════════════════════════════════════════════╗
 [!] ║ ATTENTION: Évitez d'utiliser 192.168.1.x pour le VPN si       ║
 [!] ║ c'est votre réseau local domestique (risque de conflit)       ║
 [!] ╚════════════════════════════════════════════════════════════════╝
 
-Entrez l'IP du serveur VPN [10.66.66.1]:
-Entrez le port WireGuard [51820]:
-Entrez les serveurs DNS [1.1.1.1]:
+Entrez l'IP du serveur VPN [10.66.66.1]: ⏎ (Entrée = défaut)
+Entrez le port WireGuard [51820]: ⏎
+Entrez les serveurs DNS [1.1.1.1]: ⏎
 
 ========================================
 Résumé de la Configuration
@@ -326,9 +365,28 @@ IP Serveur VPN      : 10.66.66.1
 Sous-réseau VPN     : 10.66.66.0/24
 DNS                 : 1.1.1.1
 
-Continuer avec cette configuration ? (O/n):
+Continuer avec cette configuration ? (O/n): O
 
-[✓] Installation terminée !
+[i] Activation de l'IP Forwarding...
+[✓] IP Forwarding activé de manière persistante
+[i] Génération des clés du serveur...
+[✓] Clés du serveur générées
+[i] Création du fichier de configuration du serveur...
+[✓] Configuration du serveur créée: /etc/wireguard/wg0.conf
+[i] Activation et démarrage du service WireGuard...
+[✓] Service WireGuard démarré avec succès
+[i] Génération du script helper add-client.sh...
+[✓] Script helper créé: /root/add-client.sh
+
+========================================
+Création du Premier Client
+========================================
+
+Entrez le nom du premier client (ex: smartphone, laptop): smartphone
+[i] Génération des clés du client...
+[i] Ajout du client au serveur...
+[✓] Client 'smartphone' créé avec succès (IP: 10.66.66.2)
+
 [i] QR Code pour l'application mobile WireGuard:
 
 █████████████████████████████████
@@ -336,6 +394,31 @@ Continuer avec cette configuration ? (O/n):
 ████ ▄▄▄▄▄ █▀█ █▄▄▀▄█ ▄▄▄▄▄ ████
 ████ █   █ █▀▀▀█ ▀▄ █ █   █ ████
 [... QR Code affiché ...]
+
+========================================
+Installation Terminée avec Succès !
+========================================
+
+[✓] Le serveur WireGuard est opérationnel
+[✓] Premier client créé et QR Code généré ci-dessus
+
+[i] Pour ajouter d'autres clients, utilisez:
+   /root/add-client.sh
+
+[!] ╔══════════════════════════════════════════════════════════════════╗
+[!] ║                    ACTION REQUISE                                ║
+[!] ╠══════════════════════════════════════════════════════════════════╣
+[!] ║ N'oubliez pas d'ouvrir le port UDP 51820 sur votre Box Internet ║
+[!] ║ et de le rediriger vers l'IP locale de ce conteneur:            ║
+[!] ║                                                                  ║
+[!] ║   IP du conteneur LXC: 192.168.1.100                             ║
+[!] ║   Port à rediriger: 51820/UDP                                    ║
+[!] ╚══════════════════════════════════════════════════════════════════╝
+
+[i] Commandes utiles:
+   wg show                    - Afficher l'état du serveur
+   systemctl status wg-quick@wg0 - Statut du service
+   journalctl -fu wg-quick@wg0   - Logs en temps réel
 ```
 
 ---
@@ -434,9 +517,23 @@ wg-quick up ~/wg0.conf
 
 ## ➕ Ajout de Clients Supplémentaires
 
-Le script génère automatiquement un helper pour ajouter de nouveaux clients.
+### À Propos du Script Helper `add-client.sh`
+
+**Important** : Le fichier `/root/add-client.sh` n'est **pas livré avec le dépôt GitHub**. Il est **généré automatiquement** par le script d'installation `setup-wireguard.sh` lors de la première exécution.
+
+Ce script helper est l'**outil officiel** pour ajouter de nouveaux clients à votre serveur WireGuard. Il contient toute la configuration spécifique à votre installation (endpoint, port, DNS, sous-réseau VPN) et garantit la cohérence de vos configurations.
+
+### Où se trouve-t-il ?
+
+Après avoir exécuté `setup-wireguard.sh`, vous trouverez le script généré ici :
+
+```
+/root/add-client.sh
+```
 
 ### Utilisation du Script Helper
+
+Pour ajouter un nouveau client, exécutez simplement :
 
 ```bash
 /root/add-client.sh
@@ -444,11 +541,15 @@ Le script génère automatiquement un helper pour ajouter de nouveaux clients.
 
 Le script vous demandera :
 - Le **nom du client** (ex: `laptop`, `tablet`, `phone2`)
-- Il générera automatiquement :
-  - Les clés (privée, publique, preshared)
-  - Une IP disponible dans le sous-réseau
-  - Le fichier de configuration `.conf`
-  - Le QR Code
+  - ⚠️ Uniquement des caractères alphanumériques, tirets et underscores
+  - ⚠️ Le nom doit être unique (pas de doublon)
+
+Il générera automatiquement :
+- ✅ Les **clés** (privée, publique, preshared) avec permissions `chmod 600`
+- ✅ Une **IP disponible** dans le sous-réseau (calcul automatique de la prochaine IP libre)
+- ✅ Le **fichier de configuration** `.conf` prêt à l'emploi
+- ✅ L'**ajout du client** au serveur WireGuard (via `wg set`)
+- ✅ Le **QR Code** affiché dans le terminal pour scan mobile
 
 ### Exemple
 
@@ -475,7 +576,87 @@ Entrez le nom du client (ex: smartphone, laptop): laptop
 
 ## 🔍 Dépannage
 
-### Problème : Le service WireGuard ne démarre pas
+### ⚠️ Problème n°1 : Interface TUN non disponible (ERREUR LA PLUS FRÉQUENTE)
+
+**Symptômes** :
+
+Le script affiche cette erreur au démarrage :
+
+```
+[✗] Le périphérique /dev/net/tun n'est pas disponible
+Assurez-vous que votre conteneur LXC a l'option 'tun' activée
+Sur Proxmox, modifiez le fichier /etc/pve/lxc/[ID].conf et ajoutez:
+   lxc.cgroup2.devices.allow: c 10:200 rwm
+   lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+```
+
+**Cause** :
+
+🚨 **Cette erreur est TOUJOURS causée par l'oubli de l'[Étape 2](#-étape-2--modifications-critiques-du-conteneur-lxc)** (modifications du fichier de configuration LXC sur l'hôte Proxmox).
+
+Par défaut, les conteneurs LXC sont isolés et **n'ont pas accès au périphérique `/dev/net/tun`** nécessaire à WireGuard. Vous **DEVEZ** autoriser cet accès manuellement depuis l'hôte Proxmox (PVE), **PAS depuis l'intérieur du conteneur**.
+
+**Solution** :
+
+1. **Sur votre HÔTE Proxmox** (pas dans le conteneur), arrêtez le conteneur :
+
+```bash
+pct stop [ID_CONTENEUR]
+```
+
+2. **Sur votre HÔTE Proxmox**, éditez le fichier de configuration :
+
+```bash
+nano /etc/pve/lxc/[ID_CONTENEUR].conf
+```
+
+3. Ajoutez ces lignes **à la fin du fichier** :
+
+```conf
+# Activation TUN pour WireGuard
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+```
+
+> **Note** : Pour les anciens systèmes Proxmox (cgroup v1), utilisez `lxc.cgroup.devices.allow` au lieu de `lxc.cgroup2.devices.allow`
+
+4. **Sauvegardez** le fichier (`Ctrl+O`, `Entrée`, `Ctrl+X`)
+
+5. **Redémarrez** le conteneur :
+
+```bash
+pct start [ID_CONTENEUR]
+```
+
+6. **Vérifiez** que le périphérique TUN est maintenant accessible **dans le conteneur** :
+
+```bash
+pct enter [ID_CONTENEUR]
+ls -l /dev/net/tun
+```
+
+Vous devriez voir :
+
+```
+crw-rw-rw- 1 root root 10, 200 Nov 29 12:34 /dev/net/tun
+```
+
+7. **Relancez** le script d'installation :
+
+```bash
+cd /root/Wireguard_Install
+./setup-wireguard.sh
+```
+
+**⚠️ Rappel Important** :
+
+- ❌ **NE PAS** essayer de créer `/dev/net/tun` manuellement dans le conteneur (ça ne fonctionnera pas)
+- ❌ **NE PAS** installer des modules noyau dans le conteneur (les conteneurs LXC partagent le noyau de l'hôte)
+- ✅ **TOUJOURS** modifier le fichier de configuration **sur l'hôte Proxmox**
+
+---
+
+### Problème n°2 : Le service WireGuard ne démarre pas
 
 **Vérifiez les logs** :
 
@@ -489,32 +670,9 @@ journalctl -u wg-quick@wg0 -n 50
 wg-quick up wg0
 ```
 
-### Problème : Interface TUN non disponible
+Si vous voyez une erreur liée à l'interface, vérifiez que l'interface WAN est correcte dans `/etc/wireguard/wg0.conf`
 
-**Erreur** :
-
-```
-[✗] Le périphérique /dev/net/tun n'est pas disponible
-```
-
-**Solution** :
-
-1. Assurez-vous d'avoir ajouté les lignes dans `/etc/pve/lxc/[ID].conf` (voir [Étape 2](#-étape-2--modifications-critiques-du-conteneur-lxc))
-2. Redémarrez le conteneur :
-
-```bash
-pct stop [ID_CONTENEUR]
-pct start [ID_CONTENEUR]
-```
-
-3. Vérifiez que `/dev/net/tun` existe dans le conteneur :
-
-```bash
-pct enter [ID_CONTENEUR]
-ls -l /dev/net/tun
-```
-
-### Problème : Les clients ne peuvent pas se connecter
+### Problème n°3 : Les clients ne peuvent pas se connecter
 
 **Vérifiez que le port est ouvert sur le serveur** :
 
@@ -533,12 +691,21 @@ UNCONN 0 0 0.0.0.0:51820 0.0.0.0:* users:(("wg",pid=1234,fd=3))
 **Testez la connectivité** depuis l'extérieur :
 
 ```bash
-# Depuis le client, avant d'activer le VPN
+# Depuis un autre réseau (4G, autre connexion), testez la connectivité
 ping [IP_PUBLIQUE_SERVEUR]
 nc -u -v -z [IP_PUBLIQUE_SERVEUR] 51820
 ```
 
-### Problème : Pas d'accès Internet via le VPN
+**Checklist** :
+- ✅ Le port UDP 51820 est bien redirigé vers l'IP locale du conteneur sur votre Box
+- ✅ Le service WireGuard est actif : `systemctl status wg-quick@wg0`
+- ✅ Le firewall de l'hôte Proxmox autorise le trafic UDP sur le port 51820
+
+---
+
+### Problème n°4 : Pas d'accès Internet via le VPN
+
+**Symptôme** : Vous êtes connecté au VPN, mais vous ne pouvez pas naviguer sur Internet.
 
 **Vérifiez l'IP Forwarding** :
 
@@ -553,7 +720,7 @@ sysctl net.ipv4.ip_forward
 iptables -t nat -L POSTROUTING -v
 ```
 
-Vous devriez voir une règle `MASQUERADE` pour l'interface WAN.
+Vous devriez voir une règle `MASQUERADE` pour l'interface WAN (eth0).
 
 **Réappliquez les règles** :
 
@@ -561,7 +728,19 @@ Vous devriez voir une règle `MASQUERADE` pour l'interface WAN.
 systemctl restart wg-quick@wg0
 ```
 
-### Problème : DNS ne fonctionne pas
+**Vérifiez l'interface WAN** dans `/etc/wireguard/wg0.conf` :
+
+```bash
+grep PostUp /etc/wireguard/wg0.conf
+```
+
+Assurez-vous que l'interface mentionnée (ex: `eth0`) correspond bien à votre interface réseau principale.
+
+---
+
+### Problème n°5 : DNS ne fonctionne pas
+
+**Symptôme** : Vous êtes connecté au VPN, vous avez accès à Internet via IP, mais pas par noms de domaine.
 
 **Sur le client**, vérifiez que le DNS est bien configuré dans le fichier `.conf` :
 
@@ -570,10 +749,22 @@ systemctl restart wg-quick@wg0
 DNS = 1.1.1.1
 ```
 
-**Testez la résolution DNS** :
+**Testez la résolution DNS** depuis le client :
 
 ```bash
 nslookup google.com 1.1.1.1
+```
+
+**Sur certains systèmes**, vous devrez peut-être installer `openresolv` sur le client :
+
+```bash
+# Linux
+apt install openresolv  # Debian/Ubuntu
+dnf install openresolv  # Fedora
+
+# Puis redémarrez le tunnel
+wg-quick down wg0
+wg-quick up wg0
 ```
 
 ---
