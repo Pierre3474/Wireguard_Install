@@ -1,4 +1,4 @@
-# 🔒 Installation WireGuard sur Conteneur LXC Proxmox
+# Installation WireGuard sur Conteneur LXC Proxmox
 
 <div align="center">
 
@@ -15,7 +15,7 @@
 
 ---
 
-## 📋 Table des Matières
+## Table des Matières
 
 - [Fonctionnalités](#-fonctionnalités)
 - [Prérequis](#-prérequis)
@@ -33,33 +33,41 @@
 
 ---
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-✅ **Installation entièrement automatisée** sur Debian 12
-✅ **Configuration interactive** avec détection automatique de l'interface réseau
-✅ **Génération automatique** du premier client avec QR Code
-✅ **Script helper** (`add-client.sh`) pour ajouter facilement de nouveaux clients
-✅ **Sécurité renforcée** : Clés preshared, permissions strictes
-✅ **NAT/Masquerading** automatique via iptables
-✅ **IP Forwarding** activé de manière persistante
-✅ **QR Codes** pour configuration mobile instantanée
-✅ **Gestion des erreurs** complète et messages colorés
+**Installation entièrement automatisée** sur Debian 12
+
+**Configuration interactive** avec détection automatique de l'interface réseau
+
+**Génération automatique** du premier client avec QR Code
+
+**Script helper** (`add-client.sh`) pour ajouter facilement de nouveaux clients
+
+**Sécurité renforcée** : Clés preshared, permissions strictes
+
+**NAT/Masquerading** automatique via iptables
+
+**IP Forwarding** activé de manière persistante
+
+**QR Codes** pour configuration mobile instantanée
+
+**Gestion des erreurs** complète et messages colorés
 
 ---
 
-## 🎯 Prérequis
+## Prérequis
 
 Avant de commencer, assurez-vous d'avoir :
 
-- ✅ **Proxmox VE** (version 7.x ou 8.x recommandée)
-- ✅ **Accès SSH** à votre serveur Proxmox
-- ✅ **IP Publique fixe** ou **Nom de Domaine (FQDN)** pointant vers votre serveur
-- ✅ **Accès administrateur** à votre Box Internet (pour la redirection de port)
-- ✅ Connexion Internet stable
+- **Proxmox VE** (version 7.x ou 8.x recommandée)
+- **Accès SSH** à votre serveur Proxmox
+- **IP Publique fixe** ou **Nom de Domaine (FQDN)** pointant vers votre serveur
+- **Accès administrateur** à votre Box Internet (pour la redirection de port)
+- Connexion Internet stable
 
 ---
 
-## 🚀 Étape 1 : Création du Conteneur LXC sur Proxmox
+## Étape 1 : Création du Conteneur LXC sur Proxmox
 
 ### 1.1 Via l'Interface Web Proxmox
 
@@ -71,7 +79,7 @@ Avant de commencer, assurez-vous d'avoir :
 3. **Configuration générale** :
    - **Hostname** : `wireguard-vpn` (ou le nom de votre choix)
    - **Password** : Définissez un mot de passe root sécurisé
-   - ✅ Cochez **"Unprivileged container"** (recommandé)
+   - Cochez **"Unprivileged container"** (recommandé)
 
 4. **Template** :
    - Sélectionnez **Debian 12 (Bookworm)** dans la liste des templates
@@ -134,9 +142,9 @@ pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
 
 ---
 
-## ⚙️ Étape 2 : Modifications Critiques du Conteneur LXC
+## Étape 2 : Modifications Critiques du Conteneur LXC
 
-**⚠️ IMPORTANT** : WireGuard nécessite l'accès au périphérique `/dev/net/tun`. Par défaut, les conteneurs LXC n'y ont pas accès.
+**IMPORTANT** : WireGuard nécessite l'accès au périphérique `/dev/net/tun`. Par défaut, les conteneurs LXC n'y ont pas accès.
 
 ### 2.1 Activation du Périphérique TUN
 
@@ -163,7 +171,7 @@ lxc.cgroup.devices.allow: c 10:200 rwm
 lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
 ```
 
-#### 🎓 Comprendre la Configuration LXC (Pédagogie)
+#### Comprendre la Configuration LXC (Pédagogie)
 
 **Pourquoi ces deux lignes sont-elles nécessaires ?**
 
@@ -171,7 +179,7 @@ Les conteneurs LXC sont isolés du noyau de l'hôte pour des raisons de sécurit
 
 Voici ce que font ces deux lignes :
 
-**1️⃣ `lxc.cgroup2.devices.allow: c 10:200 rwm`**
+** `lxc.cgroup2.devices.allow: c 10:200 rwm`**
 
 Cette ligne **donne la permission (la clé)** au conteneur d'accéder au périphérique TUN.
 
@@ -179,7 +187,7 @@ Cette ligne **donne la permission (la clé)** au conteneur d'accéder au périph
 - **`rwm`** : Autorise les opérations **R**ead (lecture), **W**rite (écriture), **M**knod (création)
 - **Analogie** : C'est comme donner une clé à votre conteneur pour qu'il puisse déverrouiller la porte du module TUN
 
-**2️⃣ `lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file`**
+** `lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file`**
 
 Cette ligne **crée le fichier (la serrure)** `/dev/net/tun` à l'intérieur du conteneur.
 
@@ -187,14 +195,14 @@ Cette ligne **crée le fichier (la serrure)** `/dev/net/tun` à l'intérieur du 
 - **`create=file`** : Crée le fichier spécial si inexistant dans le conteneur
 - **Analogie** : C'est comme installer la serrure sur la porte du conteneur
 
-**⚠️ Sécurité et Isolation**
+** Sécurité et Isolation**
 
 Ces modifications touchent à l'isolation du noyau. Vous autorisez délibérément le conteneur à accéder à une fonctionnalité système de bas niveau (le module TUN). C'est nécessaire pour WireGuard, mais gardez à l'esprit que :
 
-- ✅ WireGuard est un logiciel sûr et audité
-- ✅ L'accès est limité uniquement au périphérique TUN
-- ⚠️ Ne donnez ces permissions qu'aux conteneurs de confiance
-- ⚠️ Ne partagez jamais les clés privées générées
+-  WireGuard est un logiciel sûr et audité
+-  L'accès est limité uniquement au périphérique TUN
+-  Ne donnez ces permissions qu'aux conteneurs de confiance
+-  Ne partagez jamais les clés privées générées
 
 **En résumé** : Sans ces deux lignes, votre conteneur a une porte (le besoin d'accéder à TUN), mais ni serrure ni clé. Avec ces lignes, vous installez la serrure ET donnez la clé, permettant à WireGuard de fonctionner correctement.
 
@@ -245,7 +253,7 @@ pct status [ID_CONTENEUR]
 
 ---
 
-## 🛠️ Étape 3 : Installation et Exécution du Script
+## Étape 3 : Installation et Exécution du Script
 
 ### 3.1 Connexion au Conteneur
 
@@ -303,13 +311,13 @@ Le script vous guidera à travers les étapes suivantes :
 1. **Vérification de l'environnement** (interface TUN, root, etc.)
 2. **Installation des dépendances** (WireGuard, iptables, qrencode, etc.)
 3. **Configuration interactive** :
-   - ✅ **Interface WAN** : Le script détecte automatiquement `eth0` (confirmation demandée)
-   - ✅ **Endpoint** : Votre IP publique (détectée automatiquement via `ifconfig.me`) ou FQDN
-   - ✅ **Sous-réseau VPN** : Par défaut `10.66.66.1/24`
-     - ⚠️ **Alerte de sécurité** : Le script affiche un **avertissement jaune** vous rappelant d'éviter d'utiliser `192.168.1.x` pour le VPN si c'est votre réseau local domestique (risque de conflit de routage)
-     - 💡 Le sous-réseau par défaut `10.66.66.0/24` est choisi spécifiquement pour éviter les conflits avec les Box Internet classiques (qui utilisent généralement `192.168.0.x` ou `192.168.1.x`)
-   - ✅ **Port** : Par défaut `51820` (UDP)
-   - ✅ **DNS** : Par défaut `1.1.1.1` (Cloudflare)
+   - **Interface WAN** : Le script détecte automatiquement `eth0` (confirmation demandée)
+   - **Endpoint** : Votre IP publique (détectée automatiquement via `ifconfig.me`) ou FQDN
+   - **Sous-réseau VPN** : Par défaut `10.66.66.1/24`
+     - **Alerte de sécurité** : Le script affiche un **avertissement jaune** vous rappelant d'éviter d'utiliser `192.168.1.x` pour le VPN si c'est votre réseau local domestique (risque de conflit de routage)
+     - Le sous-réseau par défaut `10.66.66.0/24` est choisi spécifiquement pour éviter les conflits avec les Box Internet classiques (qui utilisent généralement `192.168.0.x` ou `192.168.1.x`)
+   - **Port** : Par défaut `51820` (UDP)
+   - **DNS** : Par défaut `1.1.1.1` (Cloudflare)
 4. **Génération des clés** du serveur (privée/publique avec permissions `chmod 600`)
 5. **Création du premier client** (nom personnalisable)
 6. **Affichage du QR Code** pour connexion mobile instantanée
@@ -423,9 +431,9 @@ Installation Terminée avec Succès !
 
 ---
 
-## 🌐 Étape 4 : Configuration de votre Box Internet
+## Étape 4 : Configuration de votre Box Internet
 
-**⚠️ CRITIQUE** : Pour que vos clients puissent se connecter depuis l'extérieur, vous devez configurer une redirection de port (NAT/PAT) sur votre Box Internet.
+**CRITIQUE** : Pour que vos clients puissent se connecter depuis l'extérieur, vous devez configurer une redirection de port (NAT/PAT) sur votre Box Internet.
 
 ### 4.1 Redirection de Port
 
@@ -473,7 +481,7 @@ nc -u -v [VOTRE_IP_PUBLIQUE] 51820
 
 ---
 
-## 📱 Utilisation
+## Utilisation
 
 ### Connexion depuis un Client Mobile
 
@@ -515,7 +523,7 @@ wg-quick up ~/wg0.conf
 
 ---
 
-## ➕ Ajout de Clients Supplémentaires
+## Ajout de Clients Supplémentaires
 
 ### À Propos du Script Helper `add-client.sh`
 
@@ -541,15 +549,15 @@ Pour ajouter un nouveau client, exécutez simplement :
 
 Le script vous demandera :
 - Le **nom du client** (ex: `laptop`, `tablet`, `phone2`)
-  - ⚠️ Uniquement des caractères alphanumériques, tirets et underscores
-  - ⚠️ Le nom doit être unique (pas de doublon)
+  - Uniquement des caractères alphanumériques, tirets et underscores
+  - Le nom doit être unique (pas de doublon)
 
 Il générera automatiquement :
-- ✅ Les **clés** (privée, publique, preshared) avec permissions `chmod 600`
-- ✅ Une **IP disponible** dans le sous-réseau (calcul automatique de la prochaine IP libre)
-- ✅ Le **fichier de configuration** `.conf` prêt à l'emploi
-- ✅ L'**ajout du client** au serveur WireGuard (via `wg set`)
-- ✅ Le **QR Code** affiché dans le terminal pour scan mobile
+- Les **clés** (privée, publique, preshared) avec permissions `chmod 600`
+- Une **IP disponible** dans le sous-réseau (calcul automatique de la prochaine IP libre)
+- Le **fichier de configuration** `.conf` prêt à l'emploi
+- L'**ajout du client** au serveur WireGuard (via `wg set`)
+- Le **QR Code** affiché dans le terminal pour scan mobile
 
 ### Exemple
 
@@ -574,9 +582,9 @@ Entrez le nom du client (ex: smartphone, laptop): laptop
 
 ---
 
-## 🔍 Dépannage
+## Dépannage
 
-### ⚠️ Problème n°1 : Interface TUN non disponible (ERREUR LA PLUS FRÉQUENTE)
+### Problème n°1 : Interface TUN non disponible (ERREUR LA PLUS FRÉQUENTE)
 
 **Symptômes** :
 
@@ -592,7 +600,7 @@ Sur Proxmox, modifiez le fichier /etc/pve/lxc/[ID].conf et ajoutez:
 
 **Cause** :
 
-🚨 **Cette erreur est TOUJOURS causée par l'oubli de l'[Étape 2](#-étape-2--modifications-critiques-du-conteneur-lxc)** (modifications du fichier de configuration LXC sur l'hôte Proxmox).
+**Cette erreur est TOUJOURS causée par l'oubli de l'[Étape 2](#-étape-2--modifications-critiques-du-conteneur-lxc)** (modifications du fichier de configuration LXC sur l'hôte Proxmox).
 
 Par défaut, les conteneurs LXC sont isolés et **n'ont pas accès au périphérique `/dev/net/tun`** nécessaire à WireGuard. Vous **DEVEZ** autoriser cet accès manuellement depuis l'hôte Proxmox (PVE), **PAS depuis l'intérieur du conteneur**.
 
@@ -648,11 +656,11 @@ cd /root/Wireguard_Install
 ./setup-wireguard.sh
 ```
 
-**⚠️ Rappel Important** :
+**Rappel Important** :
 
-- ❌ **NE PAS** essayer de créer `/dev/net/tun` manuellement dans le conteneur (ça ne fonctionnera pas)
-- ❌ **NE PAS** installer des modules noyau dans le conteneur (les conteneurs LXC partagent le noyau de l'hôte)
-- ✅ **TOUJOURS** modifier le fichier de configuration **sur l'hôte Proxmox**
+- **NE PAS** essayer de créer `/dev/net/tun` manuellement dans le conteneur (ça ne fonctionnera pas)
+- **NE PAS** installer des modules noyau dans le conteneur (les conteneurs LXC partagent le noyau de l'hôte)
+- **TOUJOURS** modifier le fichier de configuration **sur l'hôte Proxmox**
 
 ---
 
@@ -697,9 +705,9 @@ nc -u -v -z [IP_PUBLIQUE_SERVEUR] 51820
 ```
 
 **Checklist** :
-- ✅ Le port UDP 51820 est bien redirigé vers l'IP locale du conteneur sur votre Box
-- ✅ Le service WireGuard est actif : `systemctl status wg-quick@wg0`
-- ✅ Le firewall de l'hôte Proxmox autorise le trafic UDP sur le port 51820
+- Le port UDP 51820 est bien redirigé vers l'IP locale du conteneur sur votre Box
+- Le service WireGuard est actif : `systemctl status wg-quick@wg0`
+- Le firewall de l'hôte Proxmox autorise le trafic UDP sur le port 51820
 
 ---
 
@@ -769,22 +777,22 @@ wg-quick up wg0
 
 ---
 
-## 🔒 Sécurité
+## Sécurité
 
 ### Bonnes Pratiques
 
-✅ **Clés Preshared** : Le script génère automatiquement des clés preshared pour une sécurité post-quantique
-✅ **Permissions strictes** : Tous les fichiers de clés ont `chmod 600`
-✅ **Pare-feu** : Seul le port WireGuard (UDP) est exposé
-✅ **AllowedIPs** : Les clients sont isolés (`/32`), aucun client ne peut communiquer avec un autre
+**Clés Preshared** : Le script génère automatiquement des clés preshared pour une sécurité post-quantique
+**Permissions strictes** : Tous les fichiers de clés ont `chmod 600`
+**Pare-feu** : Seul le port WireGuard (UDP) est exposé
+**AllowedIPs** : Les clients sont isolés (`/32`), aucun client ne peut communiquer avec un autre
 
 ### Recommandations
 
-🔹 **Changez les clés régulièrement** (tous les 6-12 mois)
-🔹 **Utilisez un nom de domaine** (FQDN) au lieu d'une IP publique pour l'endpoint
-🔹 **Configurez fail2ban** pour bloquer les tentatives de connexion suspectes
-🔹 **Sauvegardez** le répertoire `/etc/wireguard` de manière sécurisée
-🔹 **Surveillez les logs** : `journalctl -fu wg-quick@wg0`
+**Changez les clés régulièrement** (tous les 6-12 mois)
+**Utilisez un nom de domaine** (FQDN) au lieu d'une IP publique pour l'endpoint
+**Configurez fail2ban** pour bloquer les tentatives de connexion suspectes
+**Sauvegardez** le répertoire `/etc/wireguard` de manière sécurisée
+**Surveillez les logs** : `journalctl -fu wg-quick@wg0`
 
 ### Rotation des Clés
 
@@ -799,11 +807,11 @@ chmod 600 server_privatekey
 systemctl restart wg-quick@wg0
 ```
 
-**⚠️ ATTENTION** : Vous devrez reconfigurer **tous les clients** avec la nouvelle clé publique du serveur.
+**ATTENTION** : Vous devrez reconfigurer **tous les clients** avec la nouvelle clé publique du serveur.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -862,7 +870,7 @@ systemctl restart wg-quick@wg0
 
 ---
 
-## ❓ FAQ
+## FAQ
 
 ### Q : Puis-je utiliser ce script sur une VM au lieu d'un conteneur LXC ?
 
@@ -915,7 +923,7 @@ Vous verrez la liste des clients avec leur dernière handshake et data transfert
 
 ---
 
-## 📊 Commandes Utiles
+## Commandes Utiles
 
 | Commande | Description |
 |----------|-------------|
@@ -932,7 +940,7 @@ Vous verrez la liste des clients avec leur dernière handshake et data transfert
 
 ---
 
-## 🤝 Contribution
+## Contribution
 
 Les contributions sont les bienvenues ! Si vous trouvez un bug ou souhaitez améliorer le script :
 
@@ -944,26 +952,26 @@ Les contributions sont les bienvenues ! Si vous trouvez un bug ou souhaitez amé
 
 ---
 
-## 📝 Changelog
+## Changelog
 
 ### Version 1.0.0 (2025-11-29)
 
-- ✅ Release initiale
-- ✅ Installation automatisée WireGuard
-- ✅ Génération du premier client
-- ✅ Script helper pour clients supplémentaires
-- ✅ QR Codes pour mobile
-- ✅ Gestion complète des erreurs
+- Release initiale
+- Installation automatisée WireGuard
+- Génération du premier client
+- Script helper pour clients supplémentaires
+- QR Codes pour mobile
+- Gestion complète des erreurs
 
 ---
 
-## 📄 Licence
+## Licence
 
 Ce projet est distribué sous licence **MIT**. Voir le fichier `LICENSE` pour plus de détails.
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 Ce script est fourni "tel quel", sans garantie d'aucune sorte. L'auteur ne peut être tenu responsable des dommages directs ou indirects résultant de l'utilisation de ce script. Utilisez-le à vos propres risques.
 
@@ -971,7 +979,7 @@ Ce script est fourni "tel quel", sans garantie d'aucune sorte. L'auteur ne peut 
 
 ---
 
-## 🙏 Remerciements
+## Remerciements
 
 - **[WireGuard®](https://www.wireguard.com/)** - Pour ce VPN révolutionnaire
 - **[Proxmox VE](https://www.proxmox.com/)** - Pour la meilleure plateforme de virtualisation open-source
@@ -980,8 +988,6 @@ Ce script est fourni "tel quel", sans garantie d'aucune sorte. L'auteur ne peut 
 ---
 
 <div align="center">
-
-**Fait avec ❤️ pour la communauté DevOps & SysAdmin**
 
 [![GitHub](https://img.shields.io/badge/GitHub-Pierre3474-181717?style=for-the-badge&logo=github)](https://github.com/Pierre3474)
 
